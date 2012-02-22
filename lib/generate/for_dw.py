@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 
 ### complex numbers ########################################################################
@@ -457,12 +458,12 @@ def gen(dir, pack_only=False):
 
     str += "\n"
     if dir % 2 == 0:
-        str += "const int ga_idx = sid;\n"
+        str += "const int ga_idx = sid % Vh;\n"
     else:
         str += "#ifdef MULTI_GPU\n"
-        str += "const int ga_idx = ((kernel_type == INTERIOR_KERNEL) ? sp_idx : Vh+face_idx);\n"
+        str += "const int ga_idx = ((kernel_type == INTERIOR_KERNEL) ? sp_idx % Vh : Vh+(face_idx % Vh));\n"
         str += "#else\n"
-        str += "const int ga_idx = sp_idx;\n"
+        str += "const int ga_idx = sp_idx % Vh;\n"
         str += "#endif\n"
     str += "\n"
 
@@ -506,8 +507,21 @@ def gen(dir, pack_only=False):
 # instead of using READ_UP_SPINOR and READ_DOWN_SPINOR, just use READ_HALF_SPINOR with the appropriate shift
     if (dir+1) % 2 == 0: load_half += "READ_HALF_SPINOR(SPINORTEX, sp_stride_pad, sp_idx, sp_norm_idx);\n\n"
     else: load_half += "READ_HALF_SPINOR(SPINORTEX, sp_stride_pad, sp_idx + (SPINOR_HOP/2)*sp_stride_pad, sp_norm_idx);\n\n"
-    load_gauge = "// read gauge matrix from device memory\n"
-    load_gauge += "READ_GAUGE_MATRIX(G, GAUGE"+`dir%2`+"TEX, "+`dir`+", ga_idx, ga_stride);\n\n"
+
+#for DW kernel (a bit ugly):
+    check_5d_boundary_if   = "if(!( (boundaryCrossings-boundaryCrossings4d) % 2)){\n"      
+    check_5d_boundary_else = "}\nelse{\n"
+    check_5d_boundary_end  = "}\n"	      
+    
+    parity = dir%2 
+    load_gauge0 = "// read gauge matrix from device memory\n"
+    load_gauge0 += "READ_GAUGE_MATRIX(G, GAUGE"+`parity`+"TEX, "+`dir`+", ga_idx, ga_stride);\n\n"
+
+#opposite parity:
+
+    parity = (dir+1)%2
+    load_gauge1 = "// read gauge matrix from device memory\n"
+    load_gauge1 += "READ_GAUGE_MATRIX(G, GAUGE"+`parity`+"TEX, "+`dir`+", ga_idx, ga_stride);\n\n"
 
     reconstruct_gauge = "// reconstruct gauge matrix\n"
     reconstruct_gauge += "RECONSTRUCT_GAUGE_MATRIX("+`dir`+");\n\n"
@@ -616,10 +630,13 @@ def gen(dir, pack_only=False):
         str += "if (gauge_fixed && ga_idx < X4X3X2X1hmX3X2X1h)\n"
         str += block(decl_half + prep_half + ident + reconstruct)
         str += " else "
-        str += block(load_gauge + decl_half + prep_half + reconstruct_gauge + mult + reconstruct)
+        str += block(check_5d_boundary_if + load_gauge0 + decl_half + prep_half + reconstruct_gauge + mult + reconstruct)
+        str += block(check_5d_boundary_else + load_gauge1 + decl_half + prep_half + reconstruct_gauge + mult + reconstruct)
+        str += "}\n"
     else:
-        str += load_gauge + decl_half + prep_half + reconstruct_gauge + mult + reconstruct
-    
+        str += check_5d_boundary_if + load_gauge0 + decl_half + prep_half + reconstruct_gauge + mult + reconstruct
+        str += check_5d_boundary_else + load_gauge1 + decl_half + prep_half + reconstruct_gauge + mult + reconstruct 
+	str += "}\n"
     if pack_only:
         out = load_spinor + decl_half + project
         out = out.replace("sp_idx", "idx")
@@ -971,34 +988,6 @@ f = open('../dslash_core/wilson_dslash_dagger_core.h', 'w')
 f.write(generate_dslash())
 f.close()
 
-twist = True
-clover = False
-dagger = False
-print sys.argv[0] + ": generating tm_dslash_core.h";
-f = open('../dslash_core/tm_dslash_core.h', 'w')
-f.write(generate_dslash())
-f.close()
-
-dagger = True
-print sys.argv[0] + ": generating tm_dslash_dagger_core.h";
-f = open('../dslash_core/tm_dslash_dagger_core.h', 'w')
-f.write(generate_dslash())
-f.close()
-
-sharedFloats = 0
-twist = False
-clover = False
-dagger = False
-print sys.argv[0] + ": generating wilson_pack_face_core.h";
-f = open('../dslash_core/wilson_pack_face_core.h', 'w')
-f.write(generate_pack())
-f.close()
-
-dagger = True
-print sys.argv[0] + ": generating wilson_pack_face_dagger_core.h";
-f = open('../dslash_core/wilson_pack_face_dagger_core.h', 'w')
-f.write(generate_pack())
-f.close()
 
 #f = open('clover_core.h', 'w')
 #f.write(prolog() + clover() + epilog())
