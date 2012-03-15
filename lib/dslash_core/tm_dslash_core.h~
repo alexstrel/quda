@@ -1718,7 +1718,6 @@ o32_re = o32_im = 0;
 #undef i32_re
 #undef i32_im
 
-#if (__CUDA_ARCH__ < 200)
 #undef o00_re
 #undef o00_im
 #undef o01_re
@@ -1727,29 +1726,4 @@ o32_re = o32_im = 0;
 #undef o02_im
 #undef o10_re
 #undef o10_im
-#else
-#undef o00_re
-#undef o00_im
-#undef o01_re
-#undef o01_im
-#undef o02_re
-#undef o02_im
-#undef o10_re
-#undef o10_im
-#undef o11_re
-#undef o11_im
-#undef o12_re
-#undef o12_im
-#undef o20_re
-#undef o20_im
-#undef o21_re
-#undef o21_im
-#undef o22_re
-#undef o22_im
-#undef o30_re
-#undef o30_im
-#undef o31_re
-#undef o31_im
-#undef o32_re
-#undef o32_im
-#endif
+

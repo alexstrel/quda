@@ -23,9 +23,9 @@ int main(int argc, char **argv)
   QudaGaugeParam gauge_param = newQudaGaugeParam();
   QudaInvertParam inv_param = newQudaInvertParam();
  
-  gauge_param.X[0] = 24;
-  gauge_param.X[1] = 24;
-  gauge_param.X[2] = 24;
+  gauge_param.X[0] = 16;
+  gauge_param.X[1] = 16;
+  gauge_param.X[2] = 16;
   gauge_param.X[3] = 24;
 
   gauge_param.anisotropy = 1.0;

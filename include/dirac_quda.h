@@ -22,6 +22,7 @@ class DiracParam {
   FullClover *cloverInv;
   
   double mu; // used by twisted mass only
+  double epsilon; //!NEW
 
   cudaColorSpinorField *tmp1;
   cudaColorSpinorField *tmp2; // used only by Clover and TM
@@ -30,7 +31,7 @@ class DiracParam {
 
   DiracParam() 
     : type(QUDA_INVALID_DIRAC), kappa(0.0), m5(0.0), matpcType(QUDA_MATPC_INVALID),
-    dagger(QUDA_DAG_INVALID), gauge(0), clover(0), cloverInv(0), mu(0.0), 
+    dagger(QUDA_DAG_INVALID), gauge(0), clover(0), cloverInv(0), mu(0.0), epsilon(0.0), 
     tmp1(0), tmp2(0), verbose(QUDA_SILENT)
   {
 
@@ -62,7 +63,7 @@ class Dirac {
   mutable unsigned long long flops;
   mutable cudaColorSpinorField *tmp1; // temporary hack
   mutable cudaColorSpinorField *tmp2; // temporary hack
-
+  
   bool newTmp(cudaColorSpinorField **, const cudaColorSpinorField &) const;
   void deleteTmp(cudaColorSpinorField **, const bool &reset) const;
 
@@ -92,6 +93,26 @@ class Dirac {
   virtual void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 			   const QudaSolutionType) const = 0;
 
+			   
+//BEGIN NEW
+  virtual void Dslash(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		      const QudaParity parity) const = 0;
+  virtual void DslashXpay(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, 
+			  const QudaParity parity, const cudaColorSpinorField &x1,  const cudaColorSpinorField &x2) const = 0;
+			  
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const = 0;
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const = 0;
+  void Mdag(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const;
+
+  // required methods to use e-o preconditioning for solving full system
+  
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const = 0;
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1, const cudaColorSpinorField &b2,
+		   const QudaSolutionType) const = 0;			   
+
+//END NEW
   // Dirac operator factory
   static Dirac* create(const DiracParam &param);
 
@@ -121,6 +142,21 @@ class DiracWilson : public Dirac {
 		       const QudaSolutionType) const;
   virtual void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 			   const QudaSolutionType) const;
+			   
+//BEGIN   NEW (TEMP HACK)		   
+  virtual void Dslash(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		      const QudaParity parity) const {};
+  virtual void DslashXpay(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, 
+			  const QudaParity parity, const cudaColorSpinorField &x1,  const cudaColorSpinorField &x2) const {};
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const {};
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1, const cudaColorSpinorField &b2,
+		   const QudaSolutionType) const {};		   
+//END	 NEW			   
 };
 
 // Even-odd preconditioned Wilson
@@ -142,6 +178,16 @@ class DiracWilsonPC : public DiracWilson {
 	       const QudaSolutionType) const;
   void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 		   const QudaSolutionType) const;
+//BEGIN   NEW (TEMP HACK)		   
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const {};
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1, const cudaColorSpinorField &b2,
+		   const QudaSolutionType) const {};		   
+//END	 NEW		   
 };
 
 // Full clover
@@ -169,6 +215,16 @@ class DiracClover : public DiracWilson {
 		       const QudaSolutionType) const;
   virtual void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 			   const QudaSolutionType) const;
+//BEGIN   NEW (TEMP HACK)		   
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const {};
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1, const cudaColorSpinorField &b2,
+		   const QudaSolutionType) const {};		   
+//END	 NEW			   
 };
 
 // Even-odd preconditioned clover
@@ -197,6 +253,20 @@ class DiracCloverPC : public DiracClover {
 	       const QudaSolutionType) const;
   void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 		   const QudaSolutionType) const;
+//BEGIN   NEW (TEMP HACK)		   
+  virtual void Dslash(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		      const QudaParity parity) const {};
+  virtual void DslashXpay(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, 
+			  const QudaParity parity, const cudaColorSpinorField &x1,  const cudaColorSpinorField &x2) const {};
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const {};
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1, const cudaColorSpinorField &b2,
+		   const QudaSolutionType) const {};		   
+//END	 NEW		   
 };
 
 
@@ -227,6 +297,20 @@ class DiracDomainWall : public DiracWilson {
 		       const QudaSolutionType) const;
   virtual void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 			   const QudaSolutionType) const;
+//BEGIN   NEW (TEMP HACK)		   
+  virtual void Dslash(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		      const QudaParity parity) const {};
+  virtual void DslashXpay(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, 
+			  const QudaParity parity, const cudaColorSpinorField &x1,  const cudaColorSpinorField &x2) const {};
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const {};
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1, const cudaColorSpinorField &b2,
+		   const QudaSolutionType) const {};		   
+//END	 NEW			   
 };
 
 // 5d Even-odd preconditioned domain wall
@@ -248,6 +332,16 @@ class DiracDomainWallPC : public DiracDomainWall {
 	       const QudaSolutionType) const;
   void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 		   const QudaSolutionType) const;
+//BEGIN   NEW (TEMP HACK)		   
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const {};
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1,  const cudaColorSpinorField &b2,
+		   const QudaSolutionType) const {};		   
+//END	 NEW		   
 };
 
 // Full staggered
@@ -277,6 +371,21 @@ class DiracStaggered : public Dirac {
 		       const QudaSolutionType) const;
   virtual void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 			   const QudaSolutionType) const;
+			   
+//BEGIN   NEW (TEMP HACK)		   
+  virtual void Dslash(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		      const QudaParity parity) const {};
+  virtual void DslashXpay(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, 
+			  const QudaParity parity, const cudaColorSpinorField &x1,  const cudaColorSpinorField &x2) const {};
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const {};
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1, const cudaColorSpinorField &b2,
+		   const QudaSolutionType) const {};		   
+//END	 NEW			   
 };
 
 // Even-odd preconditioned staggered
@@ -306,6 +415,22 @@ class DiracStaggeredPC : public Dirac {
 		       const QudaSolutionType) const;
   virtual void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 			   const QudaSolutionType) const;
+			   
+//BEGIN   NEW (TEMP HACK)		   
+  virtual void Dslash(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		      const QudaParity parity) const {};
+  virtual void DslashXpay(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, 
+			  const QudaParity parity, const cudaColorSpinorField &x1,  const cudaColorSpinorField &x2) const {};
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const {};
+
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const {};
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1,  const cudaColorSpinorField &b2,
+		   const QudaSolutionType) const {};		   
+//END	 NEW			   
+			   
 };
 
 // Full twisted mass
@@ -313,9 +438,17 @@ class DiracTwistedMass : public DiracWilson {
 
  protected:
   double mu;
+  double epsilon;//!NEW
+  
   void twistedApply(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
 		    const QudaTwistGamma5Type twistType) const;
+//!NEW:		    
+  void twistedApply(cudaColorSpinorField &out1, cudaColorSpinorField &out2, 
+		    const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, 
+		    const double &a, const double &b, const double &c) const;
+		    
 
+		    
  public:
   DiracTwistedMass(const DiracParam &param);
   DiracTwistedMass(const DiracTwistedMass &dirac);
@@ -332,6 +465,17 @@ class DiracTwistedMass : public DiracWilson {
 		       const QudaSolutionType) const;
   virtual void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 			   const QudaSolutionType) const;
+			   
+//BEGIN NEW			   
+  virtual void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const;
+  virtual void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const;
+
+  virtual void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+		       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+		       const QudaSolutionType) const;
+  virtual void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1, const cudaColorSpinorField &b2, 
+			   const QudaSolutionType) const{};//not implemented?			   
+//END NEW		   
 };
 
 // Even-odd preconditioned twisted mass
@@ -347,9 +491,9 @@ class DiracTwistedMassPC : public DiracTwistedMass {
 
   void TwistInv(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
 
-  virtual void Dslash(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
+  void Dslash(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
 		      const QudaParity parity) const;
-  virtual void DslashXpay(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
+  void DslashXpay(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
 			  const QudaParity parity, const cudaColorSpinorField &x, const double &k) const;
   void M(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
   void MdagM(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
@@ -359,6 +503,20 @@ class DiracTwistedMassPC : public DiracTwistedMass {
 	       const QudaSolutionType) const;
   void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 		   const QudaSolutionType) const;
+		   
+//BEGIN   NEW		   
+  void Dslash(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		      const QudaParity parity) const;
+  void DslashXpay(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, 
+			  const QudaParity parity, const cudaColorSpinorField &x1,  const cudaColorSpinorField &x2) const;
+  void M(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const;
+  void MdagM(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const;
+
+  void prepare(cudaColorSpinorField* &src1, cudaColorSpinorField* &src2, cudaColorSpinorField* &sol1, cudaColorSpinorField* &sol2,
+	       cudaColorSpinorField &x1, cudaColorSpinorField &x2, cudaColorSpinorField &b1, cudaColorSpinorField &b2,
+	       const QudaSolutionType) const;
+  void reconstruct(cudaColorSpinorField &x1, cudaColorSpinorField &x2, const cudaColorSpinorField &b1, const cudaColorSpinorField &b2,  const QudaSolutionType) const;		   
+//END	 NEW	   
 };
 
 // Functor base class for applying a given Dirac matrix (M, MdagM, etc.)
@@ -377,6 +535,12 @@ class DiracMatrix {
 			  cudaColorSpinorField &tmp) const = 0;
   virtual void operator()(cudaColorSpinorField &out, const cudaColorSpinorField &in,
 			  cudaColorSpinorField &Tmp1, cudaColorSpinorField &Tmp2) const = 0;
+			  
+//BEGIN NEW
+  virtual void operator()(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, const int x) const = 0;
+  virtual void operator()(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+			  cudaColorSpinorField &Tmp1, cudaColorSpinorField &Tmp2) const = 0; //Tmp# not changed!
+//END NEW
 
   unsigned long long flops() const { return dirac->Flops(); }
 };
@@ -413,6 +577,24 @@ class DiracM : public DiracMatrix {
     dirac->tmp2 = NULL;
     dirac->tmp1 = NULL;
   }
+  
+//BEGIN NEW
+  void operator()(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, const int x) const
+  {
+    dirac->M(out1, out2, in1, in2);
+  }
+
+  void operator()(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		  cudaColorSpinorField &Tmp1, cudaColorSpinorField &Tmp2) const
+  {
+    dirac->tmp1 = &Tmp1;
+    dirac->tmp2 = &Tmp2;
+    dirac->M(out1, out2, in1, in2);
+    dirac->tmp2 = NULL;
+    dirac->tmp1 = NULL;
+  }
+
+//END NEW
 };
 
 class DiracMdagM : public DiracMatrix {
@@ -442,6 +624,24 @@ class DiracMdagM : public DiracMatrix {
     dirac->tmp2 = NULL;
     dirac->tmp1 = NULL;
   }
+  
+//BEGIN NEW
+  void operator()(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, const int x) const
+  {
+    dirac->MdagM(out1, out2, in1, in2);
+  }
+
+  void operator()(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		  cudaColorSpinorField &Tmp1, cudaColorSpinorField &Tmp2) const
+  {
+    dirac->tmp1 = &Tmp1;
+    dirac->tmp2 = &Tmp2;
+    dirac->MdagM(out1, out2, in1, in2);
+    dirac->tmp2 = NULL;
+    dirac->tmp1 = NULL;
+  }
+
+//END NEW
 };
 
 class DiracMdag : public DiracMatrix {
@@ -471,6 +671,24 @@ class DiracMdag : public DiracMatrix {
     dirac->tmp2 = NULL;
     dirac->tmp1 = NULL;
   }
+
+//BEGIN NEW
+  void operator()(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2, const int x) const
+  {
+    dirac->Mdag(out1, out2, in1, in2);
+  }
+
+  void operator()(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2,
+		  cudaColorSpinorField &Tmp1, cudaColorSpinorField &Tmp2) const
+  {
+    dirac->tmp1 = &Tmp1;
+    dirac->tmp2 = &Tmp2;
+    dirac->Mdag(out1, out2, in1, in2);
+    dirac->tmp2 = NULL;
+    dirac->tmp1 = NULL;
+  }
+//END NEW
+
 };
 
 #endif // _DIRAC_QUDA_H

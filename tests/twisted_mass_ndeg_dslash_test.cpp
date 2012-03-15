@@ -22,7 +22,7 @@ const int transfer = 0; // include transfer time in the benchmark?
 
 const int loops = 10;
 
-QudaPrecision cpu_prec = QUDA_DOUBLE_PRECISION;
+QudaPrecision cpu_prec  = QUDA_DOUBLE_PRECISION;
 QudaPrecision cuda_prec = QUDA_HALF_PRECISION;
 
 QudaGaugeParam gauge_param;
@@ -30,8 +30,8 @@ QudaInvertParam inv_param;
 
 FullGauge gauge;
 
-cpuColorSpinorField *spinor, *spinorOut, *spinorRef;
-cudaColorSpinorField *cudaSpinor, *cudaSpinorOut, *tmp1=0, *tmp2=0;
+cpuColorSpinorField  *spinor1, *spinor2,   *spinorOut1, *spinorOut2, *spinorRef1, *spinorRef2;
+cudaColorSpinorField *cudaSpinor1, *cudaSpinor2, *cudaSpinorOut1, *cudaSpinorOut2, *tmp1=0, *tmp2=0;
 
 void *hostGauge[4];
 
@@ -63,8 +63,9 @@ void init() {
   gauge_param.type = QUDA_WILSON_LINKS;
 
   inv_param.kappa = 0.1;
-  inv_param.mu = 0.01;
-  inv_param.twist_flavor = QUDA_TWIST_MINUS;
+  inv_param.mu = 0.1;
+  inv_param.epsilon = 0.0;
+  inv_param.twist_flavor = QUDA_TWIST_DUPLET;
 
   inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
   inv_param.dagger = dagger;
@@ -73,8 +74,8 @@ void init() {
   inv_param.cuda_prec = cuda_prec;
 
   gauge_param.ga_pad = 0;
-  inv_param.sp_pad = 0;
-  inv_param.cl_pad = 0;
+  inv_param.sp_pad   = 0;
+  inv_param.cl_pad   = 0;
 
   //gauge_param.ga_pad = 24*24*24;
   //inv_param.sp_pad = 24*24*24;
@@ -102,9 +103,12 @@ void init() {
   csParam.nSpin = 4;
   csParam.twistFlavor = inv_param.twist_flavor;
   csParam.nDim = 4;
+  
   for (int d=0; d<4; d++) csParam.x[d] = gauge_param.X[d];
+  
   csParam.precision = inv_param.cpu_prec;
   csParam.pad = 0;
+  
   if (test_type < 2) {
     csParam.siteSubset = QUDA_PARITY_SITE_SUBSET;
     csParam.x[0] /= 2;
@@ -116,9 +120,13 @@ void init() {
   csParam.gammaBasis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
   csParam.create = QUDA_ZERO_FIELD_CREATE;
   
-  spinor = new cpuColorSpinorField(csParam);
-  spinorOut = new cpuColorSpinorField(csParam);
-  spinorRef = new cpuColorSpinorField(csParam);
+  spinor1    = new cpuColorSpinorField(csParam);
+  spinorOut1 = new cpuColorSpinorField(csParam);
+  spinorRef1 = new cpuColorSpinorField(csParam);
+  
+  spinor2    = new cpuColorSpinorField(csParam);
+  spinorOut2 = new cpuColorSpinorField(csParam);
+  spinorRef2 = new cpuColorSpinorField(csParam);
 
   csParam.siteSubset = QUDA_FULL_SITE_SUBSET;
   csParam.x[0] = gauge_param.X[0];
@@ -126,8 +134,10 @@ void init() {
   printfQuda("Randomizing fields... ");
 
   construct_gauge_field(hostGauge, 1, gauge_param.cpu_prec, &gauge_param);
-  spinor->Source(QUDA_RANDOM_SOURCE);
-
+  
+  spinor1->Source(QUDA_RANDOM_SOURCE);
+  spinor2->Source(QUDA_RANDOM_SOURCE);
+  
   printfQuda("done.\n"); fflush(stdout);
   
   int dev = 0;
@@ -156,9 +166,11 @@ void init() {
     }
 
     printfQuda("Creating cudaSpinor\n");
-    cudaSpinor = new cudaColorSpinorField(csParam);
+    cudaSpinor1    = new cudaColorSpinorField(csParam);
+    cudaSpinor2    = new cudaColorSpinorField(csParam);    
     printfQuda("Creating cudaSpinorOut\n");
-    cudaSpinorOut = new cudaColorSpinorField(csParam);
+    cudaSpinorOut1 = new cudaColorSpinorField(csParam);
+    cudaSpinorOut2 = new cudaColorSpinorField(csParam);    
 
     if (test_type == 2) csParam.x[0] /= 2;
 
@@ -167,11 +179,16 @@ void init() {
     tmp2 = new cudaColorSpinorField(csParam);
 
     printfQuda("Sending spinor field to GPU\n");
-    *cudaSpinor = *spinor;
+    *cudaSpinor1 = *spinor1;
+    *cudaSpinor2 = *spinor2;
+    
+    std::cout << "Flavor1 " << "Source: CPU = " << norm2(*spinor1) << ", CUDA = " << 
+      norm2(*cudaSpinor1) << std::endl;
 
-    std::cout << "Source: CPU = " << norm2(*spinor) << ", CUDA = " << 
-      norm2(*cudaSpinor) << std::endl;
+    std::cout << "Flavor2 " << "Source: CPU = " << norm2(*spinor2) << ", CUDA = " << 
+      norm2(*cudaSpinor2) << std::endl;
 
+      
     bool pc = (test_type != 2);
     DiracParam diracParam;
     setDiracParam(diracParam, &inv_param, pc);
@@ -181,7 +198,8 @@ void init() {
     
     dirac = Dirac::create(diracParam);
   } else {
-    std::cout << "Source: CPU = " << norm2(*spinor) << std::endl;
+    std::cout << "Flavor1 " << "Source: CPU = " << norm2(*spinor1) << std::endl;
+    std::cout << "Flavor1 " << "Source: CPU = " << norm2(*spinor2) << std::endl;    
   }
     
 }
@@ -189,23 +207,28 @@ void init() {
 void end() {
   if (!transfer) {
     delete dirac;
-    delete cudaSpinor;
-    delete cudaSpinorOut;
+    delete cudaSpinor1;
+    delete cudaSpinor2;    
+    delete cudaSpinorOut1;
+    delete cudaSpinorOut2;    
     delete tmp1;
     delete tmp2;
   }
 
   // release memory
-  delete spinor;
-  delete spinorOut;
-  delete spinorRef;
-
+  delete spinor1;
+  delete spinor2;  
+  delete spinorOut1;
+  delete spinorOut2;  
+  delete spinorRef1;
+  delete spinorRef2;
+  
   for (int dir = 0; dir < 4; dir++) free(hostGauge[dir]);
   endQuda();
 }
 
 // execute kernel
-double dslashCUDA() {
+double ndegDslashCUDA() {
 
   printfQuda("Executing %d kernel loops...\n", loops);
   fflush(stdout);
@@ -214,17 +237,22 @@ double dslashCUDA() {
     switch (test_type) {
     case 0:
       if (transfer) {
-	dslashQuda(spinorOut->v, spinor->v, &inv_param, parity);
-      } else {
-	dirac->Dslash(*cudaSpinorOut, *cudaSpinor, parity);
+	//ndegDslashQuda(spinorOut1->v, spinorOut2->v, spinor1->v, spinor2->v, &inv_param, parity);
+      } else if(inv_param.dslash_type == QUDA_TWISTED_MASS_DSLASH){
+	dirac->Dslash(*cudaSpinorOut1, *cudaSpinorOut2, *cudaSpinor1, *cudaSpinor2, parity);
       }
       break;
     case 1:
+    {
+        printfQuda("\ncompute Mdag\n");//See CPU version!
+        dirac->Mdag(*cudaSpinorOut1, *cudaSpinorOut2, *cudaSpinor1, *cudaSpinor2);
+    }
+      break;
     case 2:
       if (transfer) {
-	MatQuda(spinorOut->v, spinor->v, &inv_param);
+	//MatQuda(spinorOut->v, spinor->v, &inv_param);
       } else {
-	dirac->M(*cudaSpinorOut, *cudaSpinor);
+	dirac->M(*cudaSpinorOut1, *cudaSpinorOut2, *cudaSpinor1, *cudaSpinor2);
       }
       break;
     }
@@ -242,23 +270,23 @@ double dslashCUDA() {
   return secs;
 }
 
-void dslashRef() {
+void ndegDslashRef() {
 
   // compare to dslash reference implementation
   printf("Calculating reference implementation...");
   fflush(stdout);
   switch (test_type) {
   case 0:
-    dslash(spinorRef->v, hostGauge, spinor->v, inv_param.kappa, inv_param.mu, inv_param.twist_flavor,
+    ndeg_dslash(spinorRef1->v, spinorRef2->v, hostGauge, spinor1->v, spinor2->v, inv_param.kappa, inv_param.mu, inv_param.epsilon,
 	   parity, dagger, inv_param.cpu_prec, gauge_param.cpu_prec);
     break;
-  case 1:    
-    matpc(spinorRef->v, hostGauge, spinor->v, inv_param.kappa, inv_param.mu, inv_param.twist_flavor,
-	  inv_param.matpc_type, dagger, inv_param.cpu_prec, gauge_param.cpu_prec);
+  case 1: //NOTE !dagger   
+    ndeg_matpc(spinorRef1->v, spinorRef2->v, hostGauge, spinor1->v, spinor2->v, inv_param.kappa, inv_param.mu, inv_param.epsilon,
+	  inv_param.matpc_type, !dagger, inv_param.cpu_prec, gauge_param.cpu_prec);
     break;
   case 2:
-    mat(spinorRef->v, hostGauge, spinor->v, inv_param.kappa, inv_param.mu, inv_param.twist_flavor,
-	dagger, inv_param.cpu_prec, gauge_param.cpu_prec);
+    //mat(spinorRef->v, hostGauge, spinor->v, inv_param.kappa, inv_param.mu, inv_param.twist_flavor,
+	//dagger, inv_param.cpu_prec, gauge_param.cpu_prec);
     break;
   default:
     printf("Test type not defined\n");
@@ -280,12 +308,12 @@ int main(int argc, char **argv)
   printf("Shared mem: %.3f KB\n", sharedKB);
   
   int attempts = 1;
-  dslashRef();
+  ndegDslashRef();
   for (int i=0; i<attempts; i++) {
     
-    double secs = dslashCUDA();
+    double secs = ndegDslashCUDA();
 
-    if (!transfer) *spinorOut = *cudaSpinorOut;
+    if (!transfer) *spinorOut1 = *cudaSpinorOut1, *spinorOut2 = *cudaSpinorOut2;
 
     // print timing information
     printf("%fms per loop\n", 1000*secs);
@@ -298,13 +326,17 @@ int main(int argc, char **argv)
     printf("GiB/s = %f\n\n", Vh*floats*sizeof(float)/((secs/loops)*(1<<30)));
     
     if (!transfer) {
-      std::cout << "Results: CPU = " << norm2(*spinorRef) << ", CUDA = " << norm2(*cudaSpinorOut) << 
-	", CPU-CUDA = " << norm2(*spinorOut) << std::endl;
+      std::cout << "Flavor1 " << "Results: CPU = " << norm2(*spinorRef1) << ", CUDA = " << norm2(*cudaSpinorOut1) << 
+	", CPU-CUDA = " << norm2(*spinorOut1) << std::endl;
+      std::cout << "Flavor2 " << "Results: CPU = " << norm2(*spinorRef2) << ", CUDA = " << norm2(*cudaSpinorOut2) << 
+	", CPU-CUDA = " << norm2(*spinorOut2) << std::endl;	
     } else {
-      std::cout << "Result: CPU = " << norm2(*spinorRef) << ", CPU-CUDA = " << norm2(*spinorOut) << std::endl;
+      std::cout << "Flavor1 " << "Result: CPU = " << norm2(*spinorRef1) << ", CPU-CUDA = " << norm2(*spinorOut1) << std::endl;
+      std::cout << "Flavor2 " << "Result: CPU = " << norm2(*spinorRef2) << ", CPU-CUDA = " << norm2(*spinorOut2) << std::endl;      
     }
     
-    cpuColorSpinorField::Compare(*spinorRef, *spinorOut);
+    cpuColorSpinorField::Compare(*spinorRef1, *spinorOut1);
+    cpuColorSpinorField::Compare(*spinorRef2, *spinorOut2);    
   }    
   end();
 }

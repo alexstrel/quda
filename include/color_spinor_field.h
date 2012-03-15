@@ -135,7 +135,7 @@ class ColorSpinorField {
   int pad;
   int stride;
 
-  QudaTwistFlavorType twistFlavor;
+  QudaTwistFlavorType twistFlavor;//TM flag
   
   int real_length;
   int length;
@@ -150,7 +150,11 @@ class ColorSpinorField {
   // in the case of full fields, these are references to the even / odd sublattices
   ColorSpinorField *even;
   ColorSpinorField *odd;
-
+//BEGIN NEW  
+  ///Pointers to the second flavor spinor for TM dslash_type
+  //ColorSpinorField *even2;
+  //ColorSpinorField *odd2;
+//END NEW
   // resets the above attributes based on contents of param
   void reset(const ColorSpinorParam &);
   void fill(ColorSpinorParam &);
@@ -222,6 +226,21 @@ class cudaColorSpinorField : public ColorSpinorField {
 			   cudaColorSpinorField &z, const double &b);
   friend void axpyBzpcxCuda(const double &a, cudaColorSpinorField& x, cudaColorSpinorField& y,
 			    const double &b, cudaColorSpinorField& z, const double &c); 
+
+//BEGIN NEW	(used for CGS invertions only!)		    
+  friend void xpayZpbypcwCuda(cudaColorSpinorField &z, 
+		              const cudaColorSpinorField &x, 
+		              const double a, 
+		              const cudaColorSpinorField &y, 
+		              const double b, 
+		              const double c, 
+		              cudaColorSpinorField &w);
+  friend void xpaYpxZpbxCuda(cudaColorSpinorField &x, 
+			     const double a, 
+			     cudaColorSpinorField &y, 
+			     const double b, 
+			     cudaColorSpinorField &z);			      
+//END NEW				    
   
   friend void caxpbyCuda(const Complex &a, cudaColorSpinorField &x, const Complex &b, cudaColorSpinorField &y);
   friend void caxpyCuda(const Complex &a, cudaColorSpinorField &x, cudaColorSpinorField &y);
@@ -284,6 +303,11 @@ class cpuColorSpinorField : public ColorSpinorField {
   friend double dslashCUDA();
   friend void dslashRef();
   friend void staggeredDslashRef();
+  
+//BEGIN NEW
+  friend double ndegDslashCUDA();
+  friend void ndegDslashRef();  
+//END NEW
 
  private:
   void *v; // the field elements

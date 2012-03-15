@@ -85,6 +85,7 @@ texture<short4, 1, cudaReadModeNormalizedFloat> accumTexHalf;
 texture<short2, 1, cudaReadModeNormalizedFloat> accumTexHalf2;
 texture<float, 1, cudaReadModeElementType> accumTexNorm;
 
+
 static void bindGaugeTex(const FullGauge gauge, const int oddBit, 
 			 void **gauge0, void **gauge1) {
   if(oddBit) {
@@ -355,4 +356,159 @@ static void unbindCloverTex(const FullClover clover) {
   }
 
 }
+
+
+//BEGIN NEW
+// Double precision input flavor spinor field
+texture<int4, 1> flvSpinorTexDouble1;
+texture<int4, 1> flvSpinorTexDouble2;
+
+// Single precision input spinor field
+texture<float4, 1, cudaReadModeElementType> flvSpinorTexSingle1;
+texture<float2, 1, cudaReadModeElementType> flvSpinorTexSingle1_2;
+
+texture<float4, 1, cudaReadModeElementType> flvSpinorTexSingle2;
+texture<float2, 1, cudaReadModeElementType> flvSpinorTexSingle2_2;
+
+// Half precision input spinor field
+texture<short4, 1, cudaReadModeNormalizedFloat> flvSpinorTexHalf1;
+texture<short2, 1, cudaReadModeNormalizedFloat> flvSpinorTexHalf1_2;
+texture<float, 1, cudaReadModeElementType>      flvSpinorTexNorm1;
+
+texture<short4, 1, cudaReadModeNormalizedFloat> flvSpinorTexHalf2;
+texture<short2, 1, cudaReadModeNormalizedFloat> flvSpinorTexHalf2_2;
+texture<float, 1, cudaReadModeElementType>      flvSpinorTexNorm2;
+
+
+// Double precision accumulate flavor spinor field
+texture<int4, 1> flvAccumTexDouble1;
+texture<int4, 1> flvAccumTexDouble2;
+
+// Single precision accumulate spinor field
+texture<float4, 1, cudaReadModeElementType> flvAccumTexSingle1;
+texture<float2, 1, cudaReadModeElementType> flvAccumTexSingle1_2;
+
+texture<float4, 1, cudaReadModeElementType> flvAccumTexSingle2;
+texture<float2, 1, cudaReadModeElementType> flvAccumTexSingle2_2;
+
+
+// Half precision accumulate spinor field
+texture<short4, 1, cudaReadModeNormalizedFloat> flvAccumTexHalf1;
+texture<short2, 1, cudaReadModeNormalizedFloat> flvAccumTexHalf1_2;
+texture<float, 1, cudaReadModeElementType> flvAccumTexNorm1;
+
+texture<short4, 1, cudaReadModeNormalizedFloat> flvAccumTexHalf2;
+texture<short2, 1, cudaReadModeNormalizedFloat> flvAccumTexHalf2_2;
+texture<float, 1, cudaReadModeElementType> flvAccumTexNorm2;
+
+
+template <int N, typename spinorFloat>
+  int bindFlavorSpinorTex(const int length, 
+			  const spinorFloat *in1, 
+			  const float *inNorm1,			  
+			  const spinorFloat *in2, 			  
+			  const float *inNorm2,			  
+		          const spinorFloat *x1=0, 
+			  const float *xNorm1=0,
+			  const spinorFloat *x2=0, 
+			  const float *xNorm2=0) {
+
+  if (N==2 && sizeof(spinorFloat) == sizeof(double2)) {
+    int spinor_bytes = length*sizeof(double);
+    cudaBindTexture(0, flvSpinorTexDouble1, in1, spinor_bytes); 
+    cudaBindTexture(0, flvSpinorTexDouble2, in2, spinor_bytes);
+    if (x1) cudaBindTexture(0, flvAccumTexDouble1, x1, spinor_bytes); 
+    if (x2) cudaBindTexture(0, flvAccumTexDouble2, x2, spinor_bytes);     
+    return sizeof(double);
+  } else if (N==4 && sizeof(spinorFloat) == sizeof(float4)) {
+    int spinor_bytes = length*sizeof(float);
+    cudaBindTexture(0, flvSpinorTexSingle1, in1, spinor_bytes); 
+    cudaBindTexture(0, flvSpinorTexSingle2, in2, spinor_bytes); 
+    checkCudaError();
+    if (x1) cudaBindTexture(0, flvAccumTexSingle1, x1, spinor_bytes); 
+    if (x2) cudaBindTexture(0, flvAccumTexSingle2, x2, spinor_bytes);     
+    checkCudaError();
+    return sizeof(float);
+  } else if  (N==2 && sizeof(spinorFloat) == sizeof(float2)) {
+      int spinor_bytes = length*sizeof(float);
+    cudaBindTexture(0, flvSpinorTexSingle1_2, in1, spinor_bytes); 
+    cudaBindTexture(0, flvSpinorTexSingle2_2, in2, spinor_bytes); 
+    checkCudaError();
+    if (x1) cudaBindTexture(0, flvAccumTexSingle1_2, x1, spinor_bytes); 
+    if (x2) cudaBindTexture(0, flvAccumTexSingle2_2, x2, spinor_bytes);     
+      return sizeof(float);    
+  } else if (N==4 && sizeof(spinorFloat) == sizeof(short4)) {
+    int spinor_bytes = length*sizeof(short);
+    cudaBindTexture(0, flvSpinorTexHalf1, in1, spinor_bytes); 
+    if (inNorm1) cudaBindTexture(0, flvSpinorTexNorm1, inNorm1, spinor_bytes/12);     
+    cudaBindTexture(0, flvSpinorTexHalf2, in2, spinor_bytes);     
+    if (inNorm2) cudaBindTexture(0, flvSpinorTexNorm2, inNorm2, spinor_bytes/12); 
+    if (x1) cudaBindTexture(0, flvAccumTexHalf1, x1, spinor_bytes); 
+    if (xNorm1) cudaBindTexture(0, flvAccumTexNorm1, xNorm1, spinor_bytes/12); 
+    if (x2) cudaBindTexture(0, flvAccumTexHalf2, x2, spinor_bytes); 
+    if (xNorm2) cudaBindTexture(0, flvAccumTexNorm2, xNorm2, spinor_bytes/12); 
+    return sizeof(float);
+  } else if (N==2 && sizeof(spinorFloat) == sizeof(short2)) {
+      int spinor_bytes = length*sizeof(short);
+    cudaBindTexture(0, flvSpinorTexHalf1_2, in1, spinor_bytes); 
+    if (inNorm1) cudaBindTexture(0, flvSpinorTexNorm1, inNorm1, spinor_bytes/3);     
+    cudaBindTexture(0, flvSpinorTexHalf2_2, in2, spinor_bytes);     
+    if (inNorm2) cudaBindTexture(0, flvSpinorTexNorm2, inNorm2, spinor_bytes/3); 
+    if (x1) cudaBindTexture(0, flvAccumTexHalf1_2, x1, spinor_bytes); 
+    if (xNorm1) cudaBindTexture(0, flvAccumTexNorm1, xNorm1, spinor_bytes/3); 
+    if (x2) cudaBindTexture(0, flvAccumTexHalf2_2, x2, spinor_bytes); 
+    if (xNorm2) cudaBindTexture(0, flvAccumTexNorm2, xNorm2, spinor_bytes/3); 
+      return sizeof(float);
+  } else {
+    errorQuda("Unsupported precision and short vector type");
+  }
+
+}
+
+template <int N, typename spinorFloat>
+void unbindFlavorSpinorTex(const spinorFloat *in1, const float *inNorm1,
+			   const spinorFloat *in2, const float *inNorm2,
+		           const spinorFloat *x1=0, const float *xNorm1=0,
+			   const spinorFloat *x2=0, const float *xNorm2=0) {
+
+  if (N==2 && sizeof(spinorFloat) == sizeof(double2)) {
+    cudaUnbindTexture(flvSpinorTexDouble1); 
+    cudaUnbindTexture(flvSpinorTexDouble2);
+    if (x1) cudaUnbindTexture(flvAccumTexDouble1);
+    if (x2) cudaUnbindTexture(flvAccumTexDouble2);    
+  } else if (N==4 && sizeof(spinorFloat) == sizeof(float4)) {
+    cudaUnbindTexture(flvAccumTexSingle1); 
+    cudaUnbindTexture(flvAccumTexSingle2);
+    if (x1) cudaUnbindTexture(flvAccumTexSingle1); 
+    if (x2) cudaUnbindTexture(flvAccumTexSingle2);     
+  } else if  (N==2 && sizeof(spinorFloat) == sizeof(float2)) {
+    cudaUnbindTexture(flvAccumTexSingle1_2); 
+    cudaUnbindTexture(flvAccumTexSingle2_2);
+    if (x1) cudaUnbindTexture(flvAccumTexSingle1_2); 
+    if (x2) cudaUnbindTexture(flvAccumTexSingle2_2);     
+  } else if (N==4 && sizeof(spinorFloat) == sizeof(short4)) {
+    cudaUnbindTexture(flvSpinorTexHalf1); 
+    if (inNorm1) cudaUnbindTexture(flvSpinorTexNorm1);
+    cudaUnbindTexture(flvSpinorTexHalf2);     
+    if (inNorm1) cudaUnbindTexture(flvSpinorTexNorm2);
+    if (x1) cudaUnbindTexture(flvAccumTexHalf1); 
+    if (xNorm1) cudaUnbindTexture(flvAccumTexNorm1);
+    if (x1) cudaUnbindTexture(flvAccumTexHalf2); 
+    if (xNorm1) cudaUnbindTexture(flvAccumTexNorm2);
+  } else if (N==2 && sizeof(spinorFloat) == sizeof(short2)) {
+    cudaUnbindTexture(flvSpinorTexHalf1_2); 
+    if (inNorm1) cudaUnbindTexture(flvSpinorTexNorm1);
+    cudaUnbindTexture(flvSpinorTexHalf2_2);     
+    if (inNorm1) cudaUnbindTexture(flvSpinorTexNorm2);
+    if (x1) cudaUnbindTexture(flvAccumTexHalf1_2); 
+    if (xNorm1) cudaUnbindTexture(flvAccumTexNorm1);
+    if (x1) cudaUnbindTexture(flvAccumTexHalf2_2); 
+    if (xNorm1) cudaUnbindTexture(flvAccumTexNorm2);
+  } else {
+    errorQuda("Unsupported precision and short vector type");
+  }
+   
+  checkCudaError();
+}
+//END NEW
 

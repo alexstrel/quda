@@ -58,6 +58,17 @@ void Dirac::Mdag(cudaColorSpinorField &out, const cudaColorSpinorField &in) cons
   flip(dagger);
 }
 
+//BEGIN NEW
+
+void Dirac::Mdag(cudaColorSpinorField &out1, cudaColorSpinorField &out2, const cudaColorSpinorField &in1, const cudaColorSpinorField &in2) const
+{
+  flip(dagger);
+  M(out1, out2, in1, in2);
+  flip(dagger);
+}
+
+//END NEW
+
 #undef flip
 
 void Dirac::checkParitySpinor(const cudaColorSpinorField &out, const cudaColorSpinorField &in) const

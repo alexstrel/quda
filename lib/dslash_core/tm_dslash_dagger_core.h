@@ -1,6 +1,10 @@
 // *** CUDA DSLASH DAGGER ***
 
-#define SHARED_FLOATS_PER_THREAD 8
+#if (__CUDA_ARCH__ < 200)
+#define SHARED_TMDEG_FLOATS_PER_THREAD 8
+#else
+#define SHARED_TMDEG_FLOATS_PER_THREAD 24
+#endif
 
 // input spinor
 #ifdef SPINOR_DOUBLE
@@ -128,6 +132,7 @@
 #define gT22_im (-g22_im)
 
 // output spinor
+#if (__CUDA_ARCH__ < 200)
 #define o00_re s[0*SHARED_STRIDE]
 #define o00_im s[1*SHARED_STRIDE]
 #define o01_re s[2*SHARED_STRIDE]
@@ -152,7 +157,32 @@ volatile spinorFloat o31_re;
 volatile spinorFloat o31_im;
 volatile spinorFloat o32_re;
 volatile spinorFloat o32_im;
-
+#else
+#define o00_re s[0*SHARED_STRIDE]
+#define o00_im s[1*SHARED_STRIDE]
+#define o01_re s[2*SHARED_STRIDE]
+#define o01_im s[3*SHARED_STRIDE]
+#define o02_re s[4*SHARED_STRIDE]
+#define o02_im s[5*SHARED_STRIDE]
+#define o10_re s[6*SHARED_STRIDE]
+#define o10_im s[7*SHARED_STRIDE]
+#define o11_re s[8*SHARED_STRIDE]
+#define o11_im s[9*SHARED_STRIDE]
+#define o12_re s[10*SHARED_STRIDE]
+#define o12_im s[11*SHARED_STRIDE]
+#define o20_re s[12*SHARED_STRIDE]
+#define o20_im s[13*SHARED_STRIDE]
+#define o21_re s[14*SHARED_STRIDE]
+#define o21_im s[15*SHARED_STRIDE]
+#define o22_re s[16*SHARED_STRIDE]
+#define o22_im s[17*SHARED_STRIDE]
+#define o30_re s[18*SHARED_STRIDE]
+#define o30_im s[19*SHARED_STRIDE]
+#define o31_re s[20*SHARED_STRIDE]
+#define o31_im s[21*SHARED_STRIDE]
+#define o32_re s[22*SHARED_STRIDE]
+#define o32_im s[23*SHARED_STRIDE]
+#endif
 
 
 #include "read_gauge.h"
@@ -177,7 +207,7 @@ int X = 2*sid + x1odd;
 #define SHARED_STRIDE  8 // to avoid bank conflicts on G80 and GT200
 #endif
 extern __shared__ spinorFloat sd_data[];
-volatile spinorFloat *s = sd_data + SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
+volatile spinorFloat *s = sd_data + SHARED_TMDEG_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
                                   + (threadIdx.x % SHARED_STRIDE);
 #else
 #if (__CUDA_ARCH__ >= 200)
@@ -186,7 +216,7 @@ volatile spinorFloat *s = sd_data + SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(thre
 #define SHARED_STRIDE 16 // to avoid bank conflicts on G80 and GT200
 #endif
 extern __shared__ spinorFloat ss_data[];
-volatile spinorFloat *s = ss_data + SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
+volatile spinorFloat *s = ss_data + SHARED_TMDEG_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
                                   + (threadIdx.x % SHARED_STRIDE);
 #endif
 
@@ -1690,6 +1720,7 @@ o32_re = o32_im = 0;
 #undef i32_re
 #undef i32_im
 
+#if (__CUDA_ARCH__ < 200)
 #undef o00_re
 #undef o00_im
 #undef o01_re
@@ -1698,4 +1729,31 @@ o32_re = o32_im = 0;
 #undef o02_im
 #undef o10_re
 #undef o10_im
+#else
+#undef o00_re
+#undef o00_im
+#undef o01_re
+#undef o01_im
+#undef o02_re
+#undef o02_im
+#undef o10_re
+#undef o10_im
+#undef o11_re
+#undef o11_im
+#undef o12_re
+#undef o12_im
+#undef o20_re
+#undef o20_im
+#undef o21_re
+#undef o21_im
+#undef o22_re
+#undef o22_im
+#undef o30_re
+#undef o30_im
+#undef o31_re
+#undef o31_im
+#undef o32_re
+#undef o32_im
+#endif
+
 

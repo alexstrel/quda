@@ -1126,3 +1126,151 @@ void strong_check_mom(void * momA, void *momB, int len, QudaPrecision prec)
 	compare_mom((float*)momA, (float*)momB, len);
     }
 }
+
+///RECOVERED!!!
+template <typename Float>
+static void constructPointSpinorField(Float *res, int i0, int s0, int c0) {
+  Float *resEven = res;
+  Float *resOdd = res + Vh*spinorSiteSize;
+    
+  for(int i = 0; i < Vh; i++) {
+    for (int s = 0; s < 4; s++) {
+      for (int m = 0; m < 3; m++) {
+	resEven[i*(4*3*2) + s*(3*2) + m*(2) + 0] = 0;
+	resEven[i*(4*3*2) + s*(3*2) + m*(2) + 1] = 0;
+	resOdd[i*(4*3*2) + s*(3*2) + m*(2) + 0] = 0;
+	resOdd[i*(4*3*2) + s*(3*2) + m*(2) + 1] = 0;
+	if (s == s0 && m == c0) {
+	  if (fullLatticeIndex(i, 0) == i0)
+	    resEven[i*(4*3*2) + s*(3*2) + m*(2) + 0] = 1;
+	  if (fullLatticeIndex(i, 1) == i0)
+	    resOdd[i*(4*3*2) + s*(3*2) + m*(2) + 0] = 1;
+	}
+      }
+    }
+  }
+}
+
+
+template <typename Float>
+static void constructSpinorField(Float *res) {
+  for(int i = 0; i < V; i++) {
+    for (int s = 0; s < 4; s++) {
+      for (int m = 0; m < 3; m++) {
+	res[i*(4*3*2) + s*(3*2) + m*(2) + 0] = rand() / (Float)RAND_MAX;
+	res[i*(4*3*2) + s*(3*2) + m*(2) + 1] = rand() / (Float)RAND_MAX;
+      }
+    }
+  }
+}
+
+void construct_spinor_field(void *spinor, int type, int i0, int s0, int c0, QudaPrecision precision) {
+  if (type == 0) {
+    if (precision == QUDA_DOUBLE_PRECISION) constructPointSpinorField((double*)spinor, i0, s0, c0);
+    else constructPointSpinorField((float*)spinor, i0, s0, c0);
+  } else {
+    if (precision == QUDA_DOUBLE_PRECISION) constructSpinorField((double*)spinor);
+    else constructSpinorField((float*)spinor);
+  }
+}
+
+///ILDG routines:
+
+int getOddBitFromHLattCoordinate(int hlatt_coord)
+{
+	int x2, x3, x4;			//x / 2, y, z, t normal coordinates on even/odd latice
+	int z1, z2;
+	
+
+	z1  = (2 * hlatt_coord) / Z[0];
+	z2  = z1 / Z[1];
+	x2  = z1 - z2 * Z[1];
+	x4  = z2 / Z[2];
+	x3  = z2 - x4 * Z[2];
+
+	return ((x2 + x3 + x4 + 0) & 1);
+}
+
+
+template<typename Float>
+void readTMconfig(Float** gauge, char *filepath, QudaGaugeParam *param)
+{
+  Float *resEvn[4], *resOdd[4];
+  
+  int nsh  = Z[0] * Z[1] * Z[2] / 2;
+  int nvh = nsh * Z[3];
+  int oddBit, l;
+  
+  for(int dir = 0; dir < 4; dir++)
+  {
+    resEvn[dir] = gauge[dir];
+    resOdd[dir] = gauge[dir] + nvh * gaugeSiteSize;
+  }
+  
+  FILE *fp;
+  fp = fopen(filepath,"rb");
+  
+  double tmp_real, tmp_imag;
+
+  for(int dir = 0; dir < 4; dir++)
+  {
+    for(int t = 0; t < Z[3]; t++)
+    {
+      for(int s = 0; s < nsh; s++)
+      {
+	l = s + t * nsh;
+	oddBit = getOddBitFromHLattCoordinate(l);
+	if(!oddBit)
+	{
+	  for(int c1 = 0; c1 < 3; c1++)
+	    for(int c2 = 0; c2 < 3; c2++)
+	    {
+	      fread(&tmp_real, sizeof(double),1,fp);
+	      fread(&tmp_imag, sizeof(double),1,fp);
+	      resEvn[dir][l*(3*3*2) + c1*(3*2) + c2*(2) + 0] = (Float)tmp_real;
+	      resEvn[dir][l*(3*3*2) + c1*(3*2) + c2*(2) + 1] = (Float)tmp_imag;
+	    }
+	  for(int c1 = 0; c1 < 3; c1++)
+	    for(int c2 = 0; c2 < 3; c2++)
+	    {
+	      fread(&tmp_real, sizeof(double),1,fp);
+	      fread(&tmp_imag, sizeof(double),1,fp);
+	      resOdd[dir][l*(3*3*2) + c1*(3*2) + c2*(2) + 0] = (Float)tmp_real;
+	      resOdd[dir][l*(3*3*2) + c1*(3*2) + c2*(2) + 1] = (Float)tmp_imag;
+	    }
+	}
+	else
+	{
+	  for(int c1 = 0; c1 < 3; c1++)
+	    for(int c2 = 0; c2 < 3; c2++)
+	    {
+	      fread(&tmp_real, sizeof(double),1,fp);
+	      fread(&tmp_imag, sizeof(double),1,fp);
+	      resOdd[dir][l*(3*3*2) + c1*(3*2) + c2*(2) + 0] = (Float)tmp_real;
+	      resOdd[dir][l*(3*3*2) + c1*(3*2) + c2*(2) + 1] = (Float)tmp_imag;
+	    }
+	  for(int c1 = 0; c1 < 3; c1++)
+	    for(int c2 = 0; c2 < 3; c2++)
+	    {
+	      fread(&tmp_real, sizeof(double),1,fp);
+	      fread(&tmp_imag, sizeof(double),1,fp);
+	      resEvn[dir][l*(3*3*2) + c1*(3*2) + c2*(2) + 0] = (Float)tmp_real;
+	      resEvn[dir][l*(3*3*2) + c1*(3*2) + c2*(2) + 1] = (Float)tmp_imag;
+	    }
+	}
+
+      }
+    }
+  }	  
+  fclose(fp);
+  applyGaugeFieldScaling(gauge, Vh, param);  
+}
+
+void readILDGconfig(void** gauge, char *file_path, QudaGaugeParam *param)
+{
+  if(param->cpu_prec == QUDA_DOUBLE_PRECISION)
+    readTMconfig<double>((double**) gauge, file_path, param);
+  else//single precision is set
+    readTMconfig<float>((float**) gauge, file_path, param);
+}
+

@@ -51,6 +51,9 @@ extern "C" {
   // additions for dw (quickly hacked on)
   int fullLatticeIndex_4d(int i, int oddBit);
   int fullLatticeIndex_5d(int i, int oddBit);
+  
+  //Read ILDG configurations:
+  void readILDGconfig(void** gauge, char *file_path, QudaGaugeParam *param);  
 
  
 #ifdef __cplusplus

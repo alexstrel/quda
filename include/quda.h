@@ -52,7 +52,8 @@ extern "C" {
     double m5; // domain wall shift parameter
     int Ls; // domain wall 5th dimension
 
-    double mu; // twisted mass parameter
+    double mu;      // 1st twisted mass parameter
+    double epsilon; //!NEW 2nd twisted mass parameter    
     QudaTwistFlavorType twist_flavor; // twisted mass flavor
 
     double tol;
@@ -102,6 +103,8 @@ extern "C" {
 		      QudaInvertParam *inv_param);
 
   void invertQuda(void *h_x, void *h_b, QudaInvertParam *param);
+  //void invertMultiFlavorQuda(void **hp_x, void **hp_b, QudaInvertParam *param);
+  void invertMultiFlavorQuda(void *hp_xf1, void *hp_xf2, void *hp_bf1, void *hp_bf2, QudaInvertParam *param);  
   void invertMultiShiftQuda(void **_hp_x, void *_hp_b, QudaInvertParam *param,
 			    double* offsets, int num_offsets,
 			    double* residue_sq);
@@ -118,6 +121,10 @@ extern "C" {
 
   void printQudaGaugeParam(QudaGaugeParam *param);
   void printQudaInvertParam(QudaInvertParam *param);
+  
+//BEGIN NEW
+  void ndegDslashQuda(void *h_out_f1, void *h_out_f2, void *h_in_f1, void *h_in_f2, QudaInvertParam *inv_param, QudaParity parity);
+//END NEW
 
 #ifdef __cplusplus
 }

@@ -17,7 +17,7 @@ const int Nspin = 4;
 // corresponds to 10 iterations for V=24^4, Nspin = 4, at half precision
 const int Niter = 10 * (24*24*24*24*4) / (LX * LY * LZ * LT * Nspin);
 
-const int Nkernels = 24;
+const int Nkernels = 24+2;
 const int ThreadMin = 32;
 const int ThreadMax = 1024;
 const int GridMin = 1;
@@ -43,7 +43,7 @@ void setPrec(ColorSpinorParam &param, const QudaPrecision precision)
 // returns true if the specified kernel performs a reduction
 bool isReduction(int kernel)
 {
-  return (kernel > 13);
+  return (kernel > 15);
 }
 
 
@@ -188,51 +188,57 @@ double benchmark(int kernel, int niter) {
     case 12:
       axpyZpbxCuda(a, *x, *y, *z, b);
       break;
-
+      
     case 13:
+      xpayZpbypcwCuda(*z, *x, a, *y, b, c, *w);
+    
+    case 14:
+      xpaYpxZpbxCuda(*x, a, *y, b, *z);
+
+    case 15:
       caxpbypzYmbwCuda(a2, *x, b2, *y, *z, *w);
       break;
       
     // double
-    case 14:
+    case 16:
       sumCuda(*x);
       break;
 
-    case 15:
+    case 17:
       normCuda(*x);
       break;
 
-    case 16:
+    case 18:
       reDotProductCuda(*x, *y);
       break;
 
-    case 17:
+    case 19:
       axpyNormCuda(a, *x, *y);
       break;
 
-    case 18:
+    case 20:
       xmyNormCuda(*x, *y);
       break;
       
     // double2
-    case 19:
+    case 21:
       cDotProductCuda(*x, *y);
       break;
 
-    case 20:
+    case 22:
       xpaycDotzyCuda(*x, a, *y, *z);
       break;
       
     // double3
-    case 21:
+    case 23:
       cDotProductNormACuda(*x, *y);
       break;
 
-    case 22:
+    case 24:
       cDotProductNormBCuda(*x, *y);
       break;
 
-    case 23:
+    case 25:
       caxpbypzYmbwcDotProductWYNormYCuda(a2, *x, b2, *y, *z, *w, *v);
       break;
 
@@ -301,6 +307,8 @@ int main(int argc, char** argv)
     "cxpaypbzCuda",
     "axpyBzpcxCuda",
     "axpyZpbxCuda",
+    "xpayZpbypcwCuda",
+    "xpaYpxZpbxCuda",
     "caxpbypzYmbwCuda",
     "sumCuda",
     "normCuda",

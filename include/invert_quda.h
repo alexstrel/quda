@@ -43,6 +43,19 @@ extern "C" {
   void invertBiCGstabCuda(const DiracMatrix &mat, const DiracMatrix &matSloppy, cudaColorSpinorField &x,
 			  cudaColorSpinorField &b, QudaInvertParam *param);
 
+//BEGIN NEW
+  // defined in inv_cgs_cuda.cpp
+	
+  void invertCgsCuda(const DiracMatrix &mat, const DiracMatrix &matSloppy, cudaColorSpinorField &x,
+							cudaColorSpinorField &b, QudaInvertParam *param);
+
+//for TM stuff only							
+  void invertTMCgCuda(const DiracMatrix &mat, const DiracMatrix &matSloppy, cudaColorSpinorField &xf0, cudaColorSpinorField &xf1,
+		    cudaColorSpinorField &bf0, cudaColorSpinorField &bf1, QudaInvertParam *invert_param);
+		    
+  void invertTMBiCGstabCuda(const DiracMatrix &mat, const DiracMatrix &matSloppy, cudaColorSpinorField &xf0, cudaColorSpinorField &xf1,
+			 cudaColorSpinorField &bf0, cudaColorSpinorField &bf1, QudaInvertParam *invert_param);		    
+//END NEW
 #ifdef __cplusplus
 }
 #endif

@@ -67,6 +67,7 @@ extern "C" {
   typedef enum QudaInverterType_s {
     QUDA_CG_INVERTER,
     QUDA_BICGSTAB_INVERTER,
+    QUDA_CGS_INVERTER,
     QUDA_INVALID_INVERTER = QUDA_INVALID_ENUM
   } QudaInverterType;
 
@@ -224,9 +225,10 @@ extern "C" {
   } QudaSourceType;
   
   typedef enum QudaTwistFlavorType_s {
-    QUDA_TWIST_MINUS = -1,
-    QUDA_TWIST_PLUS = +1,
-    QUDA_TWIST_NO  = 0,
+    QUDA_TWIST_MINUS   = -1,
+    QUDA_TWIST_PLUS    = +1,
+    QUDA_TWIST_DUPLET  = 2, //!NEW
+    QUDA_TWIST_NO      = 0,
     QUDA_TWIST_INVALID = QUDA_INVALID_ENUM
   } QudaTwistFlavorType;  
 

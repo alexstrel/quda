@@ -105,8 +105,8 @@ void initQuda(int dev)
   cudaCloverInvSloppy.even.clover = NULL;
   cudaCloverInvSloppy.odd.clover = NULL;
 
-  //initCache();
   initBlas();
+  cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);  
 }
 
 
@@ -339,7 +339,7 @@ void setDiracParam(DiracParam &diracParam, QudaInvertParam *inv_param, bool pc)
   case QUDA_ASQTAD_DSLASH:
     diracParam.type = pc ? QUDA_ASQTADPC_DIRAC : QUDA_ASQTAD_DIRAC;
     break;
-  case QUDA_TWISTED_MASS_DSLASH:
+  case QUDA_TWISTED_MASS_DSLASH://Do we need to specify non-deg case?
     diracParam.type = pc ? QUDA_TWISTED_MASSPC_DIRAC : QUDA_TWISTED_MASS_DIRAC;
     break;
   default:
@@ -355,6 +355,7 @@ void setDiracParam(DiracParam &diracParam, QudaInvertParam *inv_param, bool pc)
   diracParam.mass = inv_param->mass;
   diracParam.m5 = inv_param->m5;
   diracParam.mu = inv_param->mu;
+  diracParam.epsilon = inv_param->epsilon;//NEW!
   diracParam.verbose = inv_param->verbosity;
 }
 
@@ -704,6 +705,17 @@ void invertQuda(void *hp_x, void *hp_b, QudaInvertParam *param)
     }
     invertCgCuda(DiracMdagM(dirac), DiracMdagM(diracSloppy), *out, *in, param);
     break;
+    
+  case QUDA_CGS_INVERTER:
+
+    if (param->solution_type == QUDA_MATDAG_MAT_SOLUTION || param->solution_type == QUDA_MATPCDAG_MATPC_SOLUTION) {
+       invertCgsCuda(DiracMdag(dirac), DiracMdag(diracSloppy), *out, *in, param);
+       copyCuda(*in, *out);
+    }
+
+     invertCgsCuda(DiracM(dirac), DiracM(diracSloppy), *out, *in, param);
+     break;
+    
   case QUDA_BICGSTAB_INVERTER:
     if (param->solution_type == QUDA_MATDAG_MAT_SOLUTION || param->solution_type == QUDA_MATPCDAG_MATPC_SOLUTION) {
       invertBiCGstabCuda(DiracMdag(dirac), DiracMdag(diracSloppy), *out, *in, param);
@@ -877,3 +889,164 @@ void invertMultiShiftQuda(void **_hp_x, void *_hp_b, QudaInvertParam *param,
   
   return;
 }
+
+#define NF 2
+
+void invertMultiFlavorQuda(void *hp_xf1, void *hp_xf2, void *hp_bf1, void *hp_bf2, QudaInvertParam *param)
+{
+  checkInvertParam(param);
+
+  bool pc_solve    = (param->solve_type == QUDA_DIRECT_PC_SOLVE || param->solve_type == QUDA_NORMEQ_PC_SOLVE);
+  bool pc_solution = (param->solution_type == QUDA_MATPC_SOLUTION ||  param->solution_type == QUDA_MATPCDAG_MATPC_SOLUTION);
+
+  param->spinorGiB = cudaGaugePrecise.volume * spinorSiteSize;
+  if (!pc_solve) param->spinorGiB *= 2;
+  param->spinorGiB *= (param->cuda_prec == QUDA_DOUBLE_PRECISION ? sizeof(double) : sizeof(float));
+  
+  if (param->preserve_source == QUDA_PRESERVE_SOURCE_NO) 
+  {
+    param->spinorGiB *= (param->inv_type == QUDA_CG_INVERTER ? 5 : 7)/(double)(1<<30);
+  } 
+  else 
+  {
+    param->spinorGiB *= (param->inv_type == QUDA_CG_INVERTER ? 8 : 9)/(double)(1<<30);
+  }
+
+  param->secs = 0;
+  param->gflops = 0;
+  param->iter = 0;
+
+  Dirac *dirac;
+  Dirac *diracSloppy;
+
+  // set the Dirac operator parameters
+  DiracParam diracParam;
+  setDiracParam(diracParam, param, pc_solve);
+
+  cpuColorSpinorField  *h_bf1, *h_bf2;
+  cpuColorSpinorField  *h_xf1, *h_xf2;
+  cudaColorSpinorField *bf1, *bf2;
+  cudaColorSpinorField *xf1, *xf2;
+  cudaColorSpinorField *inf1, *inf2;
+  cudaColorSpinorField *outf1, *outf2;  
+
+  if (param->dslash_type != QUDA_TWISTED_MASS_DSLASH) errorQuda("Invalid dslash_type");
+  
+  // temporary hack
+  if (!pc_solution) cudaGaugePrecise.X[0] *= 2;
+  
+  ColorSpinorParam cpuParam1(hp_bf1, *param, cudaGaugePrecise.X);
+  ColorSpinorParam cpuParam2(hp_bf2, *param, cudaGaugePrecise.X);
+  
+  if (!pc_solution) 
+  {
+      cudaGaugePrecise.X[0] /= 2;
+      cpuParam1.siteSubset = QUDA_FULL_SITE_SUBSET;
+      cpuParam2.siteSubset = QUDA_FULL_SITE_SUBSET;      
+  } 
+  else 
+  {
+      cpuParam1.siteSubset = QUDA_PARITY_SITE_SUBSET;
+      cpuParam2.siteSubset = QUDA_PARITY_SITE_SUBSET;      
+  }
+    
+  ColorSpinorParam cudaParam(cpuParam1, *param);
+    
+  h_bf1 = new cpuColorSpinorField(cpuParam1);
+  h_bf2 = new cpuColorSpinorField(cpuParam2);
+  
+  cpuParam1.v = hp_xf1;
+  cpuParam2.v = hp_xf2;  
+    
+  h_xf1 = new cpuColorSpinorField(cpuParam1);
+  h_xf2 = new cpuColorSpinorField(cpuParam2);  
+  bf1 = new cudaColorSpinorField(*h_bf1, cudaParam); // download source
+  bf2 = new cudaColorSpinorField(*h_bf2, cudaParam); // download source
+    
+  if (param->verbosity >= QUDA_VERBOSE) 
+  {
+      printfQuda("Source: CPU = %f, CUDA copy = %f\n", norm2(*h_bf1) + norm2(*h_bf2), norm2(*bf1) + norm2(*bf2));
+  }
+  cudaParam.create = QUDA_ZERO_FIELD_CREATE;
+  
+  xf1 = new cudaColorSpinorField(cudaParam); // solution
+  xf2 = new cudaColorSpinorField(cudaParam); // solution
+    
+    // if using preconditioning but solving the full system
+  if (pc_solve && !pc_solution) 
+  {
+      cudaParam.x[0] /= 2;
+      cudaParam.siteSubset = QUDA_PARITY_SITE_SUBSET;
+  }
+    
+  dirac = Dirac::create(diracParam); // create the (TM)Dirac operator
+    
+  setDiracSloppyParam(diracParam, param, pc_solve);
+  diracSloppy = Dirac::create(diracParam);
+   
+  dirac->prepare(inf1, inf2, outf1, outf2, *xf1, *xf2, *bf1, *bf2, param->solution_type);
+  if (param->verbosity >= QUDA_VERBOSE) printfQuda("Prepared source = %f\n", norm2(*inf1) + norm2(*inf2));   
+
+  massRescale(param->dslash_type, diracParam.kappa, param->solution_type, param->mass_normalization, *inf1);
+  massRescale(param->dslash_type, diracParam.kappa, param->solution_type, param->mass_normalization, *inf2);
+  
+  if (param->verbosity >= QUDA_VERBOSE) printfQuda("Mass rescale done\n");   
+  
+  switch (param->inv_type) {
+  case QUDA_CG_INVERTER:
+    if (param->solution_type != QUDA_MATDAG_MAT_SOLUTION && param->solution_type != QUDA_MATPCDAG_MATPC_SOLUTION) {
+      copyCuda(*outf1, *inf1), copyCuda(*outf2, *inf2);
+      dirac->Mdag(*inf1, *inf2, *outf1, *outf2);
+    }
+    invertTMCgCuda(DiracMdagM(dirac), DiracMdagM(diracSloppy), *outf1, *outf2, *inf1, *inf2, param);
+    break;
+    
+  case QUDA_CGS_INVERTER:
+
+    //if (param->solution_type == QUDA_MATDAG_MAT_SOLUTION || param->solution_type == QUDA_MATPCDAG_MATPC_SOLUTION) {
+       //invertCgsCuda(DiracMdag(dirac), DiracMdag(diracSloppy), *out[0], *out[1], *in[0], *in[1], param);
+       //copyCuda(*in[0], *out[0]), copyCuda(*in[1], *out[1]);
+    //}
+
+     //invertCgsCuda(DiracM(dirac), DiracM(diracSloppy), *out[0], *out[1], *in[0], *in[1], param);
+     break;
+    
+  case QUDA_BICGSTAB_INVERTER:
+    if (param->solution_type == QUDA_MATDAG_MAT_SOLUTION || param->solution_type == QUDA_MATPCDAG_MATPC_SOLUTION) {
+      invertTMBiCGstabCuda(DiracMdag(dirac), DiracMdag(diracSloppy), *outf1, *outf2, *inf1, *inf2, param);
+      copyCuda(*inf1, *outf1), copyCuda(*inf2, *outf2);
+    }
+    invertTMBiCGstabCuda(DiracM(dirac), DiracM(diracSloppy), *outf1, *outf2, *inf1, *inf2, param);
+    break;
+  default:
+    errorQuda("Inverter type %d not implemented", param->inv_type);
+  }
+  
+  if (param->verbosity >= QUDA_VERBOSE){
+    printfQuda("Solution = %f\n", (norm2(*xf1) + norm2(*xf2)));
+  }
+  dirac->reconstruct(*xf1, *xf2, *bf1, *bf2, param->solution_type);
+  
+ 
+  xf1->saveCPUSpinorField(*h_xf1); // since this is a reference, this won't work: h_x = x;
+  xf2->saveCPUSpinorField(*h_xf2); // since this is a reference, this won't work: h_x = x;  
+  
+  if (param->verbosity >= QUDA_VERBOSE){
+    printfQuda("Reconstructed: CUDA solution = %f, CPU copy = %f\n", (norm2(*xf1)+norm2(*xf2)), (norm2(*h_xf1)+norm2(*h_xf2)));
+  }
+  
+  delete diracSloppy;
+  delete dirac;
+
+  delete h_bf1;
+  delete h_bf2;  
+  delete h_xf1;
+  delete h_xf2;  
+  delete bf1;
+  delete bf2;  
+  delete xf1;
+  delete xf2;  
+
+  return;
+}
+

@@ -7,8 +7,6 @@
 extern "C" {
 #endif
 
-  void initCache();
-
   extern int initDslash;
 
   int dslashCudaSharedBytes(QudaPrecision spinor_prec, int blockDim);
@@ -51,11 +49,21 @@ extern "C" {
 			     const void *x, const void *xNorm, const double kappa, const double mu,
 			     const double a, const int volume, const int length, 
 			     const QudaPrecision precision);
+			     
+  // twisted mass Dslash  
+  void twistedNDMassDslashCuda(void *out1, void *outNorm1, void *out2, void *outNorm2, const FullGauge gauge, 
+			       const void *in1, const void *inNorm1, const void *in2, const void *inNorm2, const int parity, const int dagger, 
+			       const void *x1, const void *xNorm1, const void *x2, const void *xNorm2, const double a, const double b, const double c, 
+			       const int volume, const int length, const QudaPrecision precision);			     
 
   // solo twist term
   void twistGamma5Cuda(void *out, void *outNorm, const void *in, const void *inNorm,
 		       const int dagger, const double kappa, const double mu, const int volume, 
 		       const int length, const QudaPrecision precision, const QudaTwistGamma5Type);
+		       
+  void twistNDGamma5Cuda(void *out1, void *outNorm1, void *out2, void *outNorm2, const void *in1, const void *inNorm1, const void *in2, const void *inNorm2,
+		       const int dagger, const double kmu, const double kepsilon, const double delta, const int volume, 
+		       const int length, const QudaPrecision precision);		       
 
 #ifdef __cplusplus
 }

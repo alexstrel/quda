@@ -54,6 +54,11 @@ void mxpyCuda(cudaColorSpinorField &x, cudaColorSpinorField &y);
 void axpyZpbxCuda(const double &a, cudaColorSpinorField &x, cudaColorSpinorField &y, cudaColorSpinorField &z, const double &b);
 void axpyBzpcxCuda(const double &a, cudaColorSpinorField& x, cudaColorSpinorField& y, const double &b, cudaColorSpinorField& z, const double &c); 
 
+//!NEW
+void xpayZpbypcwCuda(cudaColorSpinorField &z, const cudaColorSpinorField &x, const double a, const cudaColorSpinorField &y, const double b, const double c, cudaColorSpinorField &w);
+void xpaYpxZpbxCuda(cudaColorSpinorField &x, const double a, cudaColorSpinorField &y, const double b, cudaColorSpinorField &z);
+//!
+
 void caxpbyCuda(const Complex &a, cudaColorSpinorField &x, const Complex &b, cudaColorSpinorField &y);
 void caxpyCuda(const Complex &a, cudaColorSpinorField &x, cudaColorSpinorField &y);
 void cxpaypbzCuda(cudaColorSpinorField &, const Complex &b, cudaColorSpinorField &y, const Complex &c, cudaColorSpinorField &z);
